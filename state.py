@@ -1,4 +1,9 @@
-"""JSON manifest of upload state, keyed by file path."""
+"""JSON manifest of upload state, keyed by filename.
+
+Filenames are unique and stable (sequential camera-assigned numbers), so
+keying by name rather than full path lets the same photo be recognized
+as already-uploaded regardless of which directory it's scanned from.
+"""
 
 import json
 from pathlib import Path
@@ -17,8 +22,13 @@ def save(state: dict, manifest_path: Path = MANIFEST_PATH) -> None:
 
 
 def mark_uploaded(state: dict, file_path: Path, photo_id: str) -> None:
-    state[str(file_path.resolve())] = {"photo_id": photo_id, "status": "uploaded"}
+    state[file_path.name] = {"photo_id": photo_id, "status": "uploaded"}
+
+
+def mark_baseline(state: dict, file_path: Path) -> None:
+    """Mark a pre-existing file as not eligible for upload (no photo_id)."""
+    state[file_path.name] = {"photo_id": None, "status": "baseline"}
 
 
 def is_uploaded(state: dict, file_path: Path) -> bool:
-    return state.get(str(file_path.resolve()), {}).get("status") == "uploaded"
+    return state.get(file_path.name, {}).get("status") in ("uploaded", "baseline")

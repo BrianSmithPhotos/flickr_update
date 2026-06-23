@@ -2,13 +2,16 @@
 
 from pathlib import Path
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg"}
 
 
 def find_images(directory: Path) -> list[Path]:
     return sorted(
-        p for p in directory.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
+        (
+            p for p in directory.rglob("*")
+            if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS and p.parent != directory
+        ),
+        key=lambda p: (p.name, p),
     )
 
 
