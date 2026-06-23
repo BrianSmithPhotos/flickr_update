@@ -16,6 +16,13 @@ uv.lock.bak
 .env.*
 !.env.example
 
+# --- Local upload state ---
+upload_state.json
+cron.log
+
+# --- Sample images for local testing ---
+samples/
+
 # --- Node / Next.js ---
 node_modules/
 .next/
