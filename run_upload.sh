@@ -8,7 +8,7 @@ set -a
 source .env
 set +a
 
-OUTPUT=$(uv run python main.py samples --limit 1 2>&1)
+OUTPUT=$(/Users/bsmi067/.local/bin/uv run python main.py samples --limit 1 2>&1)
 echo "$(date '+%Y-%m-%d %H:%M:%S') $OUTPUT" >> cron.log
 
 if echo "$OUTPUT" | grep -q "Nothing to upload"; then
