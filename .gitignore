@@ -15,6 +15,7 @@ uv.lock.bak
 .env
 .env.*
 !.env.example
+.oauth_request_token
 
 # --- Local upload state ---
 upload_state.json

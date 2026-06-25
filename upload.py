@@ -12,11 +12,10 @@ def get_client() -> flickrapi.FlickrAPI:
     flickr = flickrapi.FlickrAPI(api_key, api_secret, format="parsed-json")
 
     if not flickr.token_valid(perms="write"):
-        flickr.get_request_token(oauth_callback="oob")
-        authorize_url = flickr.auth_url(perms="write")
-        print(f"Authorize this app for write access, then enter the code:\n{authorize_url}")
-        verifier = input("Verifier code: ").strip()
-        flickr.get_access_token(verifier)
+        raise RuntimeError(
+            "Flickr OAuth token is missing or expired. "
+            "Run 'python auth.py' in the project directory to re-authorize."
+        )
 
     return flickr
 
