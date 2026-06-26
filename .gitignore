@@ -20,6 +20,7 @@ uv.lock.bak
 # --- Local upload state ---
 upload_state.json
 cron.log
+launchd_error.log
 
 # --- Sample images for local testing ---
 samples/

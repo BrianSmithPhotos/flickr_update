@@ -22,32 +22,33 @@ FLICKR_API_SECRET=...
 Run step 1 to get an authorization URL:
 
 ```
-python auth.py
+uv run python auth.py
 ```
 
 Open the printed URL in your browser, click "OK, I'll authorize it", then paste the verifier code back:
 
 ```
-python auth.py <verifier-code>
+uv run python auth.py <verifier-code>
 ```
 
 The OAuth token is stored in `~/.flickr/oauth-tokens.sqlite` and reused on every subsequent run.
 
-### 3. Schedule uploads with cron
+### 3. Schedule uploads with launchd
 
-The cron entry is managed by `run_upload.sh`. To install:
-
-```
-crontab -e
-```
-
-Add:
+The upload schedule is managed by a launchd agent. To install:
 
 ```
-17 */2 * * * /path/to/flickr_update/run_upload.sh
+cp com.briansmith.flickrupload.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.briansmith.flickrupload.plist
 ```
 
-This uploads up to 3 photos every 2 hours at 17 minutes past the hour (00:17, 02:17, 04:17, …). Output is appended to `cron.log` in the project directory.
+This uploads up to 3 photos every hour at 17 minutes past the hour. Unlike cron, launchd fires any missed runs after the Mac wakes from sleep. Upload output is appended to `cron.log`; any script-level errors go to `launchd_error.log`.
+
+To unload (pause uploads):
+
+```
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.briansmith.flickrupload.plist
+```
 
 ## Re-authorizing after token expiry
 
@@ -57,7 +58,7 @@ If uploads stop and `cron.log` shows:
 RuntimeError: Flickr OAuth token is missing or expired. Run 'python auth.py' ...
 ```
 
-Re-run the two-step auth flow above. The token isn't tied to a specific expiry date but can be invalidated if you revoke access in Flickr's settings or if the token cache (`~/.flickr/oauth-tokens.sqlite`) is deleted.
+Re-run the two-step auth flow above (using `uv run python auth.py`). The token isn't tied to a specific expiry date but can be invalidated if you revoke access in Flickr's settings or if the token cache (`~/.flickr/oauth-tokens.sqlite`) is deleted.
 
 ## Design
 
