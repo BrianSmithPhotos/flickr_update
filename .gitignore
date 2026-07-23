@@ -19,6 +19,7 @@ uv.lock.bak
 
 # --- Local upload state ---
 upload_state.json
+upload_state.json.bak-*
 cron.log
 launchd_error.log
 

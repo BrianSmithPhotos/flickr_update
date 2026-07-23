@@ -13,10 +13,3 @@ def find_images(directory: Path) -> list[Path]:
         ),
         key=lambda p: (p.name, p),
     )
-
-
-def select_pending(images: list[Path], state: dict, limit: int) -> list[Path]:
-    from state import is_uploaded
-
-    pending = [p for p in images if not is_uploaded(state, p)]
-    return pending[:limit]

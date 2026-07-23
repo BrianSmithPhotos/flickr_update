@@ -46,15 +46,22 @@ def run(args) -> None:
         )
         sys.exit(ANOMALY_EXIT)
 
-    pending = scan.select_pending(images, manifest, args.limit)
-
-    if not pending:
+    # Candidates are files not already handled by filename. For each, a content
+    # hash guards against re-uploading a photo that was merely renamed (e.g. a
+    # location token added in Finder) since a rename leaves the bytes unchanged.
+    candidates = [p for p in images if not state.is_uploaded(manifest, p)]
+    if not candidates:
         print("Nothing to upload.")
         return
 
-    flickr = upload.get_client()
+    known = state.known_hashes(manifest)
+    flickr = None
+    uploaded = 0
 
-    for file_path in pending:
+    for file_path in candidates:
+        if uploaded >= args.limit:
+            break
+
         if upload.is_dataless(file_path):
             # Don't open it — reading an online-only placeholder can hang for
             # hours. This tree is supposed to be fully local, so treat it as an
@@ -65,6 +72,18 @@ def run(args) -> None:
             )
             sys.exit(ANOMALY_EXIT)
 
+        digest = state.file_hash(file_path)
+        if digest in known:
+            # Same bytes as a photo already on Flickr, just under a new name.
+            # Record it so we don't re-hash it every run, and log for review.
+            print(f"Skipping {file_path.name} (same content as already-uploaded {known[digest]})")
+            state.mark_baseline(manifest, file_path, digest)
+            state.save(manifest)
+            continue
+
+        if flickr is None:
+            flickr = upload.get_client()
+
         try:
             photo_id = upload.upload_photo(flickr, file_path)
         except FlickrError as e:
@@ -74,8 +93,10 @@ def run(args) -> None:
             print(f"Skipping {file_path} (transient error: {e})")
             continue
 
-        state.mark_uploaded(manifest, file_path, photo_id)
+        state.mark_uploaded(manifest, file_path, photo_id, digest)
         state.save(manifest)
+        known[digest] = file_path.name
+        uploaded += 1
         print(f"Uploaded {file_path} -> {photo_id}")
 
 
