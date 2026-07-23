@@ -5,6 +5,25 @@ from pathlib import Path
 
 import flickrapi
 
+# macOS st_flags bit set on online-only placeholders (OneDrive/iCloud Files
+# On-Demand) whose bytes are not present locally. stat() reads this without
+# hydrating; open()/read() would block on hydration and can hang indefinitely.
+UF_DATALESS = 0x40000000
+
+
+def is_dataless(file_path: Path) -> bool:
+    """True if the file is an online-only placeholder not materialized locally.
+
+    Reading such a file blocks on OneDrive hydration and has been observed to
+    hang for hours, so callers must refuse to upload it rather than open it.
+    stat() itself is safe: it returns the flag without triggering a download.
+    """
+    try:
+        return bool(os.stat(file_path).st_flags & UF_DATALESS)
+    except OSError:
+        # If we can't even stat it, let the normal upload path surface the error.
+        return False
+
 
 def get_client() -> flickrapi.FlickrAPI:
     api_key = os.environ["FLICKR_API_KEY"]
