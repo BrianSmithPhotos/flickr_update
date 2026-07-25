@@ -7,7 +7,7 @@ set -a
 source .env
 set +a
 
-PHOTOS_DIR="/Users/bsmi067/OneDrive - Brian Smith Photos/Photos2026"
+PHOTOS_DIR="/Users/bsmi067/Library/CloudStorage/GoogleDrive-lunchwithalens@gmail.com/My Drive/Photos2026"
 
 OUTPUT=$(/Users/bsmi067/.local/bin/uv run python main.py "$PHOTOS_DIR" --limit 3 2>&1)
 STATUS=$?
