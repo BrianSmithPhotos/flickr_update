@@ -19,7 +19,7 @@ uv run python baseline.py "$DIR" --under SUB --dry-run  # exclude files from upl
 
 There are no tests or lint config. Verification is done by dry-running against a scratch copy of the manifest (`--manifest /tmp/.../m.json`), never against the real one.
 
-The schedule is a launchd agent (`com.briansmith.flickrupload.plist`), hourly at :17. Install/pause instructions are in README.md.
+The schedule is a launchd agent (`photos.briansmith.flickrupload.plist`), hourly at :17. Install/pause instructions are in README.md.
 
 ## Architecture
 

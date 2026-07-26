@@ -28,7 +28,7 @@ import scan
 import state
 import upload
 
-LAUNCHD_LABEL = "com.briansmith.flickrupload"
+LAUNCHD_LABEL = "photos.briansmith.flickrupload"
 
 # Write the manifest every this many files so a long pass over network storage
 # is resumable: re-running picks up where it left off.

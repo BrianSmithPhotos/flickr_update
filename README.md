@@ -45,8 +45,8 @@ The OAuth token is stored in `~/.flickr/oauth-tokens.sqlite` and reused on every
 The upload schedule is managed by a launchd agent. To install:
 
 ```
-cp com.briansmith.flickrupload.plist ~/Library/LaunchAgents/
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.briansmith.flickrupload.plist
+cp photos.briansmith.flickrupload.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/photos.briansmith.flickrupload.plist
 ```
 
 This uploads up to 3 photos every hour at 17 minutes past the hour. Unlike cron, launchd fires any missed runs after the Mac wakes from sleep. Upload output is appended to `cron.log`; any script-level errors go to `launchd_error.log`.
@@ -54,7 +54,7 @@ This uploads up to 3 photos every hour at 17 minutes past the hour. Unlike cron,
 To unload (pause uploads):
 
 ```
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.briansmith.flickrupload.plist
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/photos.briansmith.flickrupload.plist
 ```
 
 ## Adding an existing archive to the watched folder
@@ -66,14 +66,14 @@ new ones and **will be uploaded again as duplicates**. Before adding any, use
 
 ```
 # 1. Pause the scheduled agent so a run can't fire mid-pass
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.briansmith.flickrupload.plist
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/photos.briansmith.flickrupload.plist
 
 # 2. Copy the archive into its own subfolder, then preview
 uv run python baseline.py "$PHOTOS_DIR" --under Archive --dry-run
 
 # 3. Commit, and re-bootstrap the agent
 uv run python baseline.py "$PHOTOS_DIR" --under Archive
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.briansmith.flickrupload.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/photos.briansmith.flickrupload.plist
 ```
 
 The dry run reports how many files elsewhere in the tree are still queued for
