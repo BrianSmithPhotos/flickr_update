@@ -7,9 +7,26 @@ set -a
 source .env
 set +a
 
-PHOTOS_DIR="/Users/bsmi067/Library/CloudStorage/GoogleDrive-lunchwithalens@gmail.com/My Drive/Photos2026"
+# PHOTOS_DIR comes from .env (gitignored) rather than being hardcoded here:
+# the path embeds the local username and the Google account name, and this
+# repo is public.
+#
+# Both failures below are silent-killers — uploads would just stop, or the scan
+# would find nothing and cheerfully report "Nothing to upload." forever — so
+# they get the same log line and desktop notification as a runtime failure.
+fail() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> cron.log
+    /usr/bin/osascript -e "display notification \"${1//\"/\\\"}\" with title \"Flickr upload misconfigured\"" >/dev/null 2>&1
+    exit 1
+}
+[ -n "${PHOTOS_DIR:-}" ] || fail "PHOTOS_DIR not set — add it to .env (see .env.example)"
+[ -d "$PHOTOS_DIR" ] || fail "PHOTOS_DIR does not exist: $PHOTOS_DIR"
 
-OUTPUT=$(/Users/bsmi067/.local/bin/uv run python main.py "$PHOTOS_DIR" --limit 3 2>&1)
+# Absolute path, not bare `uv`: launchd runs with a minimal PATH that doesn't
+# include ~/.local/bin. $HOME rather than a literal home directory keeps the
+# local username out of this public repo; under `set -u` an unset HOME errors
+# loudly rather than silently invoking the wrong binary.
+OUTPUT=$("$HOME/.local/bin/uv" run python main.py "$PHOTOS_DIR" --limit 3 2>&1)
 STATUS=$?
 echo "$(date '+%Y-%m-%d %H:%M:%S') $OUTPUT" >> cron.log
 

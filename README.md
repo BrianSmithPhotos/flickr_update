@@ -10,12 +10,19 @@ Flickr's own API limits are far looser than any sane upload schedule — the pla
 
 ### 1. Credentials
 
-Copy `.env.example` to `.env` and fill in your Flickr API key and secret:
+Copy `.env.example` to `.env` and fill it in:
 
 ```
 FLICKR_API_KEY=...
 FLICKR_API_SECRET=...
+PHOTOS_DIR="/Users/you/Library/CloudStorage/GoogleDrive-you@example.com/My Drive/Photos2026"
 ```
+
+`PHOTOS_DIR` lives here rather than in `run_upload.sh` because the path embeds
+your local username and cloud account name, and this repo is public. `.env` is
+gitignored. If it's missing or points at a nonexistent directory, `run_upload.sh`
+logs the reason and fires a desktop notification rather than silently uploading
+nothing.
 
 ### 2. Authorize with Flickr (one-time)
 

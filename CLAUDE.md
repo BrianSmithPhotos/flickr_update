@@ -23,7 +23,7 @@ The schedule is a launchd agent (`com.briansmith.flickrupload.plist`), hourly at
 
 ## Architecture
 
-- `run_upload.sh` — launchd entry point. `cd`s to the repo, sources `.env`, hardcodes `PHOTOS_DIR` (line 10), appends output to `cron.log`, and fires a desktop notification on any non-zero exit. The `cd` matters: `state.MANIFEST_PATH` is a **relative** path, so running `main.py` from elsewhere silently uses a different manifest.
+- `run_upload.sh` — launchd entry point. `cd`s to the repo, sources `.env`, validates `PHOTOS_DIR`, appends output to `cron.log`, and fires a desktop notification on any non-zero exit. The `cd` matters: `state.MANIFEST_PATH` is a **relative** path, so running `main.py` from elsewhere silently uses a different manifest.
 - `main.py` — orchestration: scan, filter, dedupe, upload up to `--limit`, save after each photo.
 - `scan.py` — finds candidate images.
 - `state.py` — JSON manifest (`upload_state.json`, gitignored), keyed by filename.
@@ -46,7 +46,7 @@ Subtle and easy to break — the pipeline in `main.py:run`:
 - **Never read a file without checking `upload.is_dataless` first.** Opening an online-only placeholder blocks on hydration and has hung for hours. `stat()` is safe; `open()` is not. The current source (Google Drive, `~/Library/CloudStorage/...`) is marked available offline and its files stat cleanly as materialized (`st_flags=0x40`, `UF_TRACKED`, not `UF_DATALESS`), so the guard behaves correctly there. Google Drive uses the same macOS File Provider mechanism as iCloud, so `UF_DATALESS` is expected to apply to streaming-only files — but that path is untested and should not arise while the folder stays offline-available. If the folder is ever switched back to streaming, re-verify before trusting the guard.
 - **A run is watchdogged at 300s** (`main.py:20`). Without it, one hung read wedges the process and launchd's no-overlap rule silently suppresses every later run.
 - **Error 6 (bandwidth) and 98 (bad token) are stop conditions**, not retries; everything else is transient and skipped for the run. Sync anomalies exit with code 2 so `run_upload.sh` can alert.
-- **Credentials are never committed** — API key/secret in `.env`, OAuth token in `~/.flickr/oauth-tokens.sqlite`, both outside version control. This repo is public on GitHub.
+- **Credentials and local paths are never committed** — API key/secret and `PHOTOS_DIR` in `.env`, OAuth token in `~/.flickr/oauth-tokens.sqlite`, all outside version control. This repo is **public on GitHub**, and the photo path embeds both the local username and the Google account name, so it must not be hardcoded in a tracked file.
 - **Baselining is irreversible in effect**: a baselined photo never uploads. Confirm the queue state before running `baseline.py`, scope it with `--under`, and keep the automatic manifest backup.
 
 ## Working agreements
