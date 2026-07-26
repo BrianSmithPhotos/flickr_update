@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
 
 def find_images(directory: Path) -> list[Path]:
