@@ -50,6 +50,44 @@ To unload (pause uploads):
 launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.briansmith.flickrupload.plist
 ```
 
+## Adding an existing archive to the watched folder
+
+The uploader never asks Flickr what's already there — `upload_state.json` is its
+only memory. Photos copied in from an older archive are indistinguishable from
+new ones and **will be uploaded again as duplicates**. Before adding any, use
+`baseline.py` to record them as already handled:
+
+```
+# 1. Pause the scheduled agent so a run can't fire mid-pass
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.briansmith.flickrupload.plist
+
+# 2. Copy the archive into its own subfolder, then preview
+uv run python baseline.py "$PHOTOS_DIR" --under Archive --dry-run
+
+# 3. Commit, and re-bootstrap the agent
+uv run python baseline.py "$PHOTOS_DIR" --under Archive
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.briansmith.flickrupload.plist
+```
+
+The dry run reports how many files elsewhere in the tree are still queued for
+upload, so you can confirm the archive folder is the only thing being touched.
+
+`--under` is the important safety: it confines the pass to the folder the
+archive landed in, so photos still queued elsewhere in the tree can't be swept
+up. Anything baselined is excluded from upload permanently, so the script backs
+up the manifest first and prompts for confirmation. Files already in the
+manifest keep their `photo_id`; the only change to them is filling in a missing
+content hash.
+
+Two things to watch:
+
+- **Files must be available offline.** Placeholders can't be hashed and are
+  reported, not baselined — they'd still be seen as new. `Photos2026` is already
+  marked available offline in Google Drive, so copied-in files inherit that;
+  just confirm the copy has finished syncing before running the script.
+- **Images placed directly in `$PHOTOS_DIR`** (not in a subfolder) are ignored by
+  the scanner entirely, so they never upload and aren't baselined either.
+
 ## Re-authorizing after token expiry
 
 If uploads stop and `cron.log` shows:

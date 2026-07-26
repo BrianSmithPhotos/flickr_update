@@ -2,24 +2,53 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status
-
-This repository currently contains only research (`research/RESEARCH.md`) — no source code, build tooling, dependencies, or tests exist yet. There are no commands to build, lint, or test because nothing has been implemented. When code is added, update this file with the actual commands and architecture.
-
 ## What this project is
 
-A rate-limited Flickr upload tool: scan a directory of images and upload them to Flickr at a controlled pace (e.g. 3 images per 30 minutes), rather than all at once.
+A rate-limited Flickr upload tool: it scans a directory of images and uploads them to Flickr at a controlled pace (3 per hour), rather than all at once.
 
-Brian has a **Flickr Pro account**, so bandwidth/storage limits are not a constraint here. The reason for pacing uploads is **visibility, not quota**: he's observed that when a batch of images (e.g. 20) is uploaded at once, only the last few (e.g. 3) seem to get views — likely because Flickr's contacts/recent-activity feeds only surface the most recent uploads. Spacing uploads out is meant to give each photo its own moment in front of viewers, not to stay under any rate limit.
+Brian has a **Flickr Pro account**, so bandwidth/storage limits are not a constraint. The reason for pacing is **visibility, not quota**: when a batch of images is uploaded at once, only the last few get views, because Flickr's contacts/recent-activity feeds surface only the most recent uploads. Spacing uploads out gives each photo its own moment in front of viewers. Flickr does not enforce this pacing — its API limit is 3,600 queries/hour, far looser than any sane upload schedule. The throttling exists purely for visibility.
 
-## Key design decisions from research
+## Commands
 
-These constraints came out of `research/RESEARCH.md` and should guide the implementation:
+```bash
+uv run python main.py "$PHOTOS_DIR" --limit 3   # one paced batch
+uv run python auth.py                           # one-time OAuth setup (see README)
+uv run python baseline.py "$DIR" --under SUB --dry-run  # exclude files from upload
+./run_upload.sh                                 # what launchd invokes
+```
 
-- **Flickr does not enforce the upload pacing** — its API limit is 3,600 queries/hour per key, far looser than any sane upload schedule. The tool itself must implement the throttling (directory scan, state tracking, pacing/scheduling) purely for visibility reasons, not because Flickr or the account requires it.
-- **Auth is OAuth 1.0a, three-legged** — request token → user authorization (write permission) → permanent token/secret. This exchange is a one-time setup step; the resulting token/secret should be stored and reused, not re-derived per run.
-- **Use an existing OAuth/upload client** rather than hand-rolling signing — `flickrapi` or `python-flickr-api` are the candidates noted in research.
-- **Credentials (API key, API secret, OAuth token/secret) must never be committed** — keep them in environment variables or a local config file excluded via `.gitignore`, since this repo is on GitHub.
-- **Persist upload state** (e.g. filename + hash → uploaded/not) so the tool can be stopped and resumed without re-uploading or skipping files.
-- **Two viable pacing architectures**: a long-running loop process that sleeps between batches, or a short script invoked on a schedule (cron/launchd) that uploads up to N files per invocation. The research leans toward the scheduled-invocation pattern as more robust (no long-lived process to keep alive).
-- **Error handling distinction**: retry transient errors (network, Flickr error 105) with backoff; treat error 6 (bandwidth limit) and error 98 (bad/expired token) as stop conditions needing user attention, not retries. Error 6 should be effectively unreachable given the Pro account, but still worth handling defensively.
+There are no tests or lint config. Verification is done by dry-running against a scratch copy of the manifest (`--manifest /tmp/.../m.json`), never against the real one.
+
+The schedule is a launchd agent (`com.briansmith.flickrupload.plist`), hourly at :17. Install/pause instructions are in README.md.
+
+## Architecture
+
+- `run_upload.sh` — launchd entry point. `cd`s to the repo, sources `.env`, hardcodes `PHOTOS_DIR` (line 10), appends output to `cron.log`, and fires a desktop notification on any non-zero exit. The `cd` matters: `state.MANIFEST_PATH` is a **relative** path, so running `main.py` from elsewhere silently uses a different manifest.
+- `main.py` — orchestration: scan, filter, dedupe, upload up to `--limit`, save after each photo.
+- `scan.py` — finds candidate images.
+- `state.py` — JSON manifest (`upload_state.json`, gitignored), keyed by filename.
+- `upload.py` — Flickr client + single-photo upload, plus the dataless-file guard.
+- `baseline.py` — one-off pass to mark existing files as already handled.
+
+## How photos are selected
+
+Subtle and easy to break — the pipeline in `main.py:run`:
+
+1. `scan.find_images` recursively globs for `.jpg`/`.jpeg`, **excluding files directly in the tree root** (`scan.py:12`) — a photo must be in a subfolder or it is silently ignored.
+2. Results sort **alphabetically by filename**, not by date. New files with early-sorting names jump the queue.
+3. Candidates are filenames absent from the manifest.
+4. Each candidate is SHA-256'd; a digest already in the manifest means the file is a rename of a known photo, so it's marked `baseline` and skipped. Skips do **not** count against `--limit`.
+5. The first `--limit` survivors upload.
+
+## Invariants
+
+- **The manifest is the only memory. The tool never asks Flickr what's already there.** Any photo it hasn't recorded is uploaded, even if an identical one is already on Flickr. This is why `baseline.py` must run before an existing archive is copied into the watched tree.
+- **Never read a file without checking `upload.is_dataless` first.** Opening an online-only placeholder blocks on hydration and has hung for hours. `stat()` is safe; `open()` is not. The current source (Google Drive, `~/Library/CloudStorage/...`) is marked available offline and its files stat cleanly as materialized (`st_flags=0x40`, `UF_TRACKED`, not `UF_DATALESS`), so the guard behaves correctly there. Google Drive uses the same macOS File Provider mechanism as iCloud, so `UF_DATALESS` is expected to apply to streaming-only files — but that path is untested and should not arise while the folder stays offline-available. If the folder is ever switched back to streaming, re-verify before trusting the guard.
+- **A run is watchdogged at 300s** (`main.py:20`). Without it, one hung read wedges the process and launchd's no-overlap rule silently suppresses every later run.
+- **Error 6 (bandwidth) and 98 (bad token) are stop conditions**, not retries; everything else is transient and skipped for the run. Sync anomalies exit with code 2 so `run_upload.sh` can alert.
+- **Credentials are never committed** — API key/secret in `.env`, OAuth token in `~/.flickr/oauth-tokens.sqlite`, both outside version control. This repo is public on GitHub.
+- **Baselining is irreversible in effect**: a baselined photo never uploads. Confirm the queue state before running `baseline.py`, scope it with `--under`, and keep the automatic manifest backup.
+
+## Working agreements
+
+- **Never manually drain a backlog of missed uploads.** If a schedule gap leaves photos unsent, ask Brian rather than running catch-up batches — the whole point is the pacing, and a burst defeats it. Let the hourly schedule absorb it.
