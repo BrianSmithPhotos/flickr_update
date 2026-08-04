@@ -49,7 +49,7 @@ cp photos.briansmith.flickrupload.plist ~/Library/LaunchAgents/
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/photos.briansmith.flickrupload.plist
 ```
 
-This uploads up to 3 photos every hour at 17 minutes past the hour. Unlike cron, launchd fires any missed runs after the Mac wakes from sleep. Upload output is appended to `cron.log`; any script-level errors go to `launchd_error.log`.
+This uploads up to 2 photos every hour at 17 minutes past the hour. Unlike cron, launchd fires any missed runs after the Mac wakes from sleep. Upload output is appended to `cron.log`; any script-level errors go to `launchd_error.log`.
 
 To unload (pause uploads):
 

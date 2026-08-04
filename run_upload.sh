@@ -26,7 +26,7 @@ fail() {
 # include ~/.local/bin. $HOME rather than a literal home directory keeps the
 # local username out of this public repo; under `set -u` an unset HOME errors
 # loudly rather than silently invoking the wrong binary.
-OUTPUT=$("$HOME/.local/bin/uv" run python main.py "$PHOTOS_DIR" --limit 3 2>&1)
+OUTPUT=$("$HOME/.local/bin/uv" run python main.py "$PHOTOS_DIR" --limit 2 2>&1)
 STATUS=$?
 echo "$(date '+%Y-%m-%d %H:%M:%S') $OUTPUT" >> cron.log
 
