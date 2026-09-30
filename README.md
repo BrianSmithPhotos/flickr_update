@@ -1,6 +1,6 @@
 # flickr-update
 
-A rate-limited Flickr upload tool: scans a directory of images and uploads them to Flickr at a controlled pace (e.g. 3 images per 30 minutes), rather than all at once.
+A rate-limited Flickr upload tool: scans a directory of images and uploads them to Flickr at a controlled pace (2 images per hour), rather than all at once.
 
 ## Why
 
@@ -109,7 +109,7 @@ Re-run the two-step auth flow above (using `uv run python auth.py`). The token i
 
 - **Auth**: OAuth 1.0a (three-legged). `auth.py` handles the one-time setup; `upload.py` reuses the stored token.
 - **State**: Upload progress is persisted in `upload_state.json` (gitignored), keyed by filename. Stops and resumes safely without re-uploading.
-- **Error handling**: Transient errors (network, HTTP 504) are logged and skipped. Token errors (Flickr error 98) cause a clean exit with a message pointing to `auth.py`.
+- **Error handling**: Transient errors (network, HTTP 504) are logged and skipped; each HTTP request times out after 60s so a stalled connection cannot hang the run. Token errors (Flickr error 98) cause a clean exit with a message pointing to `auth.py`.
 - **Credentials**: API key/secret in `.env` (gitignored); OAuth token in `~/.flickr/oauth-tokens.sqlite` (outside the repo).
 
 See [CLAUDE.md](CLAUDE.md) for full design notes.
