@@ -3,6 +3,7 @@ import signal
 import sys
 from pathlib import Path
 
+import requests.exceptions
 from flickrapi.exceptions import FlickrError
 
 import scan
@@ -14,12 +15,12 @@ import upload
 STOP_CODES = {6, 98}
 
 # Watchdog: a single run must never last longer than this. It exists to keep a
-# hung OneDrive read (online-only file that never finishes hydrating) from
+# hung cloud-sync read (online-only file that never finishes hydrating) from
 # wedging the process forever and, via launchd's no-overlap rule, silently
 # suppressing every subsequent scheduled run.
 DEFAULT_TIMEOUT = 300  # seconds
 
-# Exit code used for OneDrive/sync anomalies so run_upload.sh can alert on them.
+# Exit code used for cloud-sync anomalies so run_upload.sh can alert on them.
 ANOMALY_EXIT = 2
 
 
@@ -38,10 +39,10 @@ def run(args) -> None:
         images = scan.find_images(args.directory)
     except OSError as e:
         # e.g. [Errno 11] Resource deadlock avoided: a folder under the tree is
-        # a OneDrive placeholder that can't be enumerated. Fail loud, not silent.
+        # a cloud-sync placeholder that can't be enumerated. Fail loud, not silent.
         print(
             f"ANOMALY: cannot scan {args.directory}: {e}. "
-            f"A OneDrive folder may be dehydrated/offline; expected it to be "
+            f"A cloud-synced folder may be online-only; expected it to be "
             f"fully synced locally."
         )
         sys.exit(ANOMALY_EXIT)
@@ -68,7 +69,7 @@ def run(args) -> None:
             # anomaly worth surfacing rather than silently skipping the photo.
             print(
                 f"ANOMALY: {file_path} is online-only (not synced locally); "
-                f"OneDrive may have dehydrated Photos2026. Refusing to read it."
+                f"Google Drive may have made the folder online-only. Refusing to read it."
             )
             sys.exit(ANOMALY_EXIT)
 
@@ -91,6 +92,12 @@ def run(args) -> None:
                 print(f"Stopping: {e}")
                 sys.exit(1)
             print(f"Skipping {file_path} (transient error: {e})")
+            continue
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            # A stalled or dropped connection (upload.REQUEST_TIMEOUT). Skip and
+            # let the next hourly run retry, rather than burning the whole run
+            # watchdog and raising an alert for a passing network blip.
+            print(f"Skipping {file_path} (network error: {e})")
             continue
 
         state.mark_uploaded(manifest, file_path, photo_id, digest)
@@ -118,8 +125,8 @@ def main():
         run(args)
     except RunTimeout:
         print(
-            f"ANOMALY: run exceeded {args.timeout}s and was aborted. A OneDrive "
-            f"read likely hung; check that Photos2026 is fully synced locally."
+            f"ANOMALY: run exceeded {args.timeout}s and was aborted. A cloud-sync "
+            f"read or network request likely hung; check the folder is available offline."
         )
         sys.exit(ANOMALY_EXIT)
     finally:

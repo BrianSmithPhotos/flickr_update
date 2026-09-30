@@ -90,10 +90,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "flickrapi" },
+    { name = "requests" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "flickrapi", specifier = ">=2.4.0" }]
+requires-dist = [
+    { name = "flickrapi", specifier = ">=2.4.0" },
+    { name = "requests", specifier = ">=2.34.2" },
+]
 
 [[package]]
 name = "flickrapi"
